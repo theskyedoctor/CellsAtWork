@@ -14,8 +14,8 @@ I think that's why older games had a dropdown menu for a bunch of different reso
 We could probably do dynamic scaling for this project,
 but if we were making something huge like Helldivers it might be a bad idea.
 also I think some modern games detect the monitor's size once and set it that way. also an option.*/
-constexpr int kScreenWidth{ 640 };
-constexpr int kScreenHeight{ 480 };
+constexpr int kScreenWidth{ 1280 };
+constexpr int kScreenHeight{ 640 };
 
 /* Function Prototypes */
 //Starts up SDL and creates window
@@ -144,9 +144,9 @@ bool loadMedia()
     ///textures for example are hardware accelerated, and are probably the main way of having images.
     ///im pondering how this will work for ascii still.
     ///dwarf fortress actually uses an older version of SDL so its clearly possible.
-    std::string imagePath{ "../assets/SDL-logo.bmp" };
+    std::string imagePath{ "../assets/eukariot.png" };
     ///another cursed if statement
-    if ( gHelloWorld = SDL_LoadBMP( imagePath.c_str() ); gHelloWorld == nullptr )
+    if ( gHelloWorld = SDL_LoadPNG( imagePath.c_str() ); gHelloWorld == nullptr )
     {
         SDL_Log("SDL could not load image! SDL_Error: %s\n", SDL_GetError() );
         success = false;
