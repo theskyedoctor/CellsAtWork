@@ -1,0 +1,10 @@
+/home/skyehigh/CLionProjects/Eukariot/CMakeFiles/Eukariot.dir
+/home/skyehigh/CLionProjects/Eukariot/CMakeFiles/edit_cache.dir
+/home/skyehigh/CLionProjects/Eukariot/CMakeFiles/rebuild_cache.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/CMakeFiles/edit_cache.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/CMakeFiles/rebuild_cache.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/SDL/CMakeFiles/SDL3-shared.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/SDL/CMakeFiles/SDL3_test.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/SDL/CMakeFiles/SDL_uclibc.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/SDL/CMakeFiles/edit_cache.dir
+/home/skyehigh/CLionProjects/Eukariot/vendor/SDL/CMakeFiles/rebuild_cache.dir

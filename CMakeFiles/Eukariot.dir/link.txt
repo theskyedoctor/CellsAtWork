@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/Eukariot.dir/link.d CMakeFiles/Eukariot.dir/main.cpp.o -o Eukariot  -Wl,-rpath,/home/skyehigh/CLionProjects/Eukariot/vendor/SDL vendor/SDL/libSDL3.so.0.5.0

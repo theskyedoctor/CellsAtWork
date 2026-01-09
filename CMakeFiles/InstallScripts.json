@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/skyehigh/CLionProjects/Eukariot/cmake_install.cmake",
+		"/home/skyehigh/CLionProjects/Eukariot/vendor/cmake_install.cmake",
+		"/home/skyehigh/CLionProjects/Eukariot/vendor/SDL/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
