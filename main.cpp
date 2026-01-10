@@ -81,7 +81,7 @@ SDL_Renderer* gRenderer{ nullptr };
 //the PNG image we will be rendering
 ///you could likely load as many textures as you wanted this way.
 ///seems inefficient and I bet that there is a way to load in lots of textures into an atlas of some kind.
-LTexture gPngTexture;
+LTexture gPngTexture, gBmpTexture;
 
 int main()
 {
@@ -112,6 +112,10 @@ int main()
             SDL_Event e;
             SDL_zero( e );
 
+            //The currently rendered texture
+            LTexture* currentTexture = &gPngTexture;
+            SDL_Color bgColor{ 0xff, 0xff, 0xff, 0xff };
+
             //The main loop
             while ( quit == false)
             {
@@ -124,17 +128,49 @@ int main()
                     {
                         quit = true;
                     }
+                    //on keyboard key press
+                    else if ( e.type == SDL_EVENT_KEY_UP )
+                    {
+                        if ( e.key.key == SDLK_SPACE)
+                        {
+                            if ( currentTexture == &gPngTexture )
+                            {
+                                currentTexture = &gBmpTexture;
+                            }
+                            else
+                            {
+                                currentTexture = &gPngTexture;
+                            }
+                        }
+                    }
+                }
+                //reset background color to white
+                bgColor.r = 0xFF;
+                bgColor.g = 0xFF;
+                bgColor.b = 0xFF;
+
+                //set background color based on key state
+                /// there are more traditional ways to get keycodes, but keyboard state is the best for movement
+                /// otherwise you could use the code above
+                const bool* keyStates = SDL_GetKeyboardState( nullptr );
+                if ( keyStates[ SDL_SCANCODE_SPACE ] )
+                {
+                    bgColor.r = 0xFF;
+                    bgColor.g = 0xB7;
+                    bgColor.b = 0xCE;
+
+
                 }
 
-                //File the surface white
+                //Fill the background
                 ///could maybe input opengl shaders that you make in shader toy here? might be worth trying
-                SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
+                SDL_SetRenderDrawColor( gRenderer, bgColor.r, bgColor.g, bgColor.b, 0xFF );
                 SDL_RenderClear( gRenderer );
 
                 //render image on screen
                 /// we write it as 0.f instead of 0.0 because the graphics card uses a weird notation.
                 /// if I teach you some openGL youll use it a lot. otherwise dont worry too much about it
-                gPngTexture.render( 0.f, 0.f );
+                currentTexture->render( ( kScreenWidth - currentTexture->getWidth() ) / 2.f, ( kScreenHeight - currentTexture->getHeight() ) / 2.f );
 
                 //update screen
                 SDL_RenderPresent( gRenderer );
@@ -280,6 +316,11 @@ bool loadMedia()
     ///im pondering how this will work for ascii still.
     ///dwarf fortress actually uses an older version of SDL so its clearly possible.
     if ( gPngTexture.loadFromFile( "../assets/eukariot.png" ) == false )
+    {
+        SDL_Log("SDL could not load image!\n");
+        success = false;
+    }
+    if ( gBmpTexture.loadFromFile( "../assets/SDL-logo.bmp" ) == false )
     {
         SDL_Log("SDL could not load image!\n");
         success = false;
