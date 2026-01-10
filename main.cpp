@@ -38,6 +38,11 @@ public:
     //Load texture from disk
     bool loadFromFile( std::string path, Uint8 r, Uint8 g, Uint8 b );
 
+#if defined(SDL_TTF_MAJOR_VERSION)
+    //creates texture from text
+    bool loadFromRenderedText( std::string textureText, SDL_Color textColor );
+#endif
+
     //Cleans up texture
     ///this will be called by the deconstructor, and we could get away with not having it seperate,
     ///but it is good for organization
@@ -107,10 +112,13 @@ SDL_Window* gWindow{ nullptr };
 ///this tool uses the gpu, and is therefore far more performant
 SDL_Renderer* gRenderer{ nullptr };
 
+//global font
+TTF_Font* gFont{ nullptr };
+
 //the PNG image we will be rendering
 ///you could likely load as many textures as you wanted this way.
 ///seems inefficient and I bet that there is a way to load in lots of textures into an atlas of some kind.
-LTexture gPngTexture, gBmpTexture, gSpriteSheetTexture;
+LTexture gPngTexture, gBmpTexture, gSpriteSheetTexture, gTextTexture;
 
 int main()
 {
@@ -214,6 +222,9 @@ int main()
                 //draw original sized sprite
                 //gSpriteSheetTexture.render( 0.f, 0.f, &spriteClip, spriteSize.w, spriteSize.h, 45 );
 
+                //render text
+                gTextTexture.render( ( kScreenWidth - gTextTexture.getWidth() ) / 2.f, (kScreenHeight - gTextTexture.getHeight() ) );
+
                 //render image on screen
                 /// we write it as 0.f instead of 0.0 because the graphics card uses a weird notation.
                 /// if I teach you some openGL youll use it a lot. otherwise dont worry too much about it
@@ -296,6 +307,38 @@ bool LTexture::loadFromFile( std::string path, Uint8 r, Uint8 g, Uint8 b )
     //Return success if texture loaded
     return mTexture != nullptr;
 }
+
+#if defined(SDL_TTF_MAJOR_VERSION)
+bool LTexture::loadFromRenderedText(std::string textureText, SDL_Color textColor)
+{
+    //Clean up existing texture
+    destroy();
+
+    //load text surface
+    if ( SDL_Surface* textSurface = TTF_RenderText_Blended( gFont, textureText.c_str(), 0, textColor ); textSurface == nullptr )
+    {
+        SDL_Log( "Unable to render text surface! SDL_ttf Error: %s\n", SDL_GetError() );
+    }
+    else
+    {
+        //create texture from surface
+        if ( mTexture = SDL_CreateTextureFromSurface( gRenderer, textSurface ); mTexture == nullptr )
+        {
+            SDL_Log( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
+        }
+        else
+        {
+            mWidth = textSurface->w;
+            mHeight = textSurface->h;
+        }
+        //Free temp surface
+        SDL_DestroySurface( textSurface );
+    }
+
+    //Return success if texture loaded
+    return mTexture != nullptr;
+}
+#endif
 
 void LTexture::destroy()
 {
@@ -388,6 +431,15 @@ bool init()
             SDL_Log("Window could not be created! SDL_Error: %s\n", SDL_GetError() );
             success = false;
         }
+        else
+        {
+            //initialize font loading
+            if ( TTF_Init() == false )
+            {
+                SDL_Log( "SDL_ttf could not initialize! SDL_ttf error: %s\n", SDL_GetError() );
+                success = false;
+            }
+        }
     }
     return success;
 }
@@ -416,6 +468,22 @@ bool loadMedia()
         SDL_Log("SDL could not load image!\n");
         success = false;
     }
+    std::string fontPath{ "../assets/RobotoMono-VariableFont_wght.ttf" };
+    if ( gFont = TTF_OpenFont( fontPath.c_str(), 28 ); gFont == nullptr )
+    {
+        SDL_Log( "Could not load %s! SDL_ttf Error: %s\n", fontPath.c_str(), SDL_GetError() );
+        success = false;
+    }
+    else
+    {
+        //load text
+        SDL_Color textColor{ 0x00, 0x00, 0x00, 0xFF};
+        if ( gTextTexture.loadFromRenderedText( "Install your balls", textColor ) == false)
+        {
+            SDL_Log( "Could not load text texture %s! SDL_ttf Error: %s\n", fontPath.c_str(), SDL_GetError() );
+            success = false;
+        }
+    }
 
     return success;
 }
@@ -425,6 +493,10 @@ void close()
     //clean up surface
     gPngTexture.destroy();
 
+    //free font
+    TTF_CloseFont( gFont );
+    gFont = nullptr;
+
     //destroy window
     SDL_DestroyRenderer( gRenderer );
     gRenderer = nullptr;
@@ -432,5 +504,6 @@ void close()
     gWindow = nullptr;
 
     //quit sdl subsystems
+    TTF_Quit();
     SDL_Quit();
 }
