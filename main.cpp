@@ -6,6 +6,7 @@
 #include "SDL3/SDL.h"
 #include "SDL3/SDL_main.h"
 #include "SDL3_image/SDL_image.h"
+#include "SDL3_ttf/SDL_ttf.h"
 #include <string>
 
 /* Constants */
@@ -22,6 +23,9 @@ constexpr int kScreenHeight{ 640 };
 class LTexture
 {
 public:
+    //Symbolic constant
+    static constexpr float kOriginalSize = -1.f;
+
     //initializes texture variables
     LTexture();
 
@@ -32,15 +36,29 @@ public:
     ~LTexture();
 
     //Load texture from disk
-    bool loadFromFile( std::string path );
+    bool loadFromFile( std::string path, Uint8 r, Uint8 g, Uint8 b );
+
+#if defined(SDL_TTF_MAJOR_VERSION)
+    //creates texture from text
+    bool loadFromRenderedText( std::string textureText, SDL_Color textColor );
+#endif
 
     //Cleans up texture
     ///this will be called by the deconstructor, and we could get away with not having it seperate,
     ///but it is good for organization
     void destroy();
 
+    //Sets color modulation
+    void setColor( Uint8 r, Uint8 g, Uint8 b );
+
+    //set opacity
+    void setAlpha( Uint8 alpha );
+
+    //set blend mode
+    void setBlending( SDL_BlendMode blendMode );
+
     //draw texture
-    void render( float x, float y );
+    void render( float x, float y, SDL_FRect* clip = nullptr, float width = kOriginalSize, float height = kOriginalSize, double degrees = 0.0, SDL_FPoint* center = nullptr, SDL_FlipMode flipMode = SDL_FLIP_NONE );
 
     //Gets texture attributes
     ///we could store these as public variables, and not have to access them through functions,
@@ -58,6 +76,22 @@ private:
     int mWidth;
     int mHeight;
 };
+
+/* planned render overhaul classes
+class Transform2D
+{
+
+};
+
+class SpriteDef
+{
+
+};
+
+class GameObject
+{
+
+};*/
 
 /* Function Prototypes */
 //Starts up SDL and creates window
@@ -78,10 +112,13 @@ SDL_Window* gWindow{ nullptr };
 ///this tool uses the gpu, and is therefore far more performant
 SDL_Renderer* gRenderer{ nullptr };
 
+//global font
+TTF_Font* gFont{ nullptr };
+
 //the PNG image we will be rendering
 ///you could likely load as many textures as you wanted this way.
 ///seems inefficient and I bet that there is a way to load in lots of textures into an atlas of some kind.
-LTexture gPngTexture, gBmpTexture;
+LTexture gPngTexture, gBmpTexture, gSpriteSheetTexture, gTextTexture;
 
 int main()
 {
@@ -167,6 +204,27 @@ int main()
                 SDL_SetRenderDrawColor( gRenderer, bgColor.r, bgColor.g, bgColor.b, 0xFF );
                 SDL_RenderClear( gRenderer );
 
+                //initialize sprite clip
+                constexpr float kSpriteSize = 100.f;
+                SDL_FRect spriteClip{ 0.f, 0.f, kSpriteSize, kSpriteSize };
+
+                //initialize sprite size
+                SDL_FRect spriteSize{ 0.f, 0.f, kSpriteSize, kSpriteSize};
+
+                //use top left sprite
+                spriteClip.x = 0.f;
+                spriteClip.y = 0.f;
+
+                //set sprite size to original size
+                spriteSize.w = kSpriteSize;
+                spriteSize.h = kSpriteSize;
+
+                //draw original sized sprite
+                //gSpriteSheetTexture.render( 0.f, 0.f, &spriteClip, spriteSize.w, spriteSize.h, 45 );
+
+                //render text
+                gTextTexture.render( ( kScreenWidth - gTextTexture.getWidth() ) / 2.f, (kScreenHeight - gTextTexture.getHeight() ) );
+
                 //render image on screen
                 /// we write it as 0.f instead of 0.0 because the graphics card uses a weird notation.
                 /// if I teach you some openGL youll use it a lot. otherwise dont worry too much about it
@@ -205,7 +263,7 @@ LTexture::~LTexture()
     destroy();
 }
 
-bool LTexture::loadFromFile( std::string path )
+bool LTexture::loadFromFile( std::string path, Uint8 r, Uint8 g, Uint8 b )
 {
     //clean up texture if it already exists
     destroy();
@@ -221,18 +279,25 @@ bool LTexture::loadFromFile( std::string path )
     }
     else
     {
-        //create texture from surface
-        ///apparently in modern c++ you can declare a variable and check a condition on the same line. cool?
-        ///personally im never gonna use it, but the tutorial did so i guess its okay.
-        if ( mTexture = SDL_CreateTextureFromSurface( gRenderer, loadedSurface ); mTexture == nullptr )
+        if ( SDL_SetSurfaceColorKey( loadedSurface, true, SDL_MapSurfaceRGB( loadedSurface, r, g, b) ) == false)
         {
-            SDL_Log( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
+            SDL_Log( "Unable to color key! SDL error: %s", SDL_GetError() );
         }
         else
         {
-            //get image dimensions
-            mWidth = loadedSurface->w;
-            mHeight = loadedSurface->h;
+            //create texture from surface
+            ///apparently in modern c++ you can declare a variable and check a condition on the same line. cool?
+            ///personally im never gonna use it, but the tutorial did so i guess its okay.
+            if ( mTexture = SDL_CreateTextureFromSurface( gRenderer, loadedSurface ); mTexture == nullptr )
+            {
+                SDL_Log( "Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError() );
+            }
+            else
+            {
+                //get image dimensions
+                mWidth = loadedSurface->w;
+                mHeight = loadedSurface->h;
+            }
         }
 
         //clean up loaded surface
@@ -243,6 +308,38 @@ bool LTexture::loadFromFile( std::string path )
     return mTexture != nullptr;
 }
 
+#if defined(SDL_TTF_MAJOR_VERSION)
+bool LTexture::loadFromRenderedText(std::string textureText, SDL_Color textColor)
+{
+    //Clean up existing texture
+    destroy();
+
+    //load text surface
+    if ( SDL_Surface* textSurface = TTF_RenderText_Blended( gFont, textureText.c_str(), 0, textColor ); textSurface == nullptr )
+    {
+        SDL_Log( "Unable to render text surface! SDL_ttf Error: %s\n", SDL_GetError() );
+    }
+    else
+    {
+        //create texture from surface
+        if ( mTexture = SDL_CreateTextureFromSurface( gRenderer, textSurface ); mTexture == nullptr )
+        {
+            SDL_Log( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
+        }
+        else
+        {
+            mWidth = textSurface->w;
+            mHeight = textSurface->h;
+        }
+        //Free temp surface
+        SDL_DestroySurface( textSurface );
+    }
+
+    //Return success if texture loaded
+    return mTexture != nullptr;
+}
+#endif
+
 void LTexture::destroy()
 {
     //clean up texture
@@ -252,7 +349,22 @@ void LTexture::destroy()
     mHeight = 0;
 }
 
-void LTexture::render( float x, float y )
+void LTexture::setColor(Uint8 r, Uint8 g, Uint8 b)
+{
+    SDL_SetTextureColorMod( mTexture, r, g, b );
+}
+
+void LTexture::setAlpha(Uint8 alpha)
+{
+    SDL_SetTextureAlphaMod( mTexture, alpha );
+}
+
+void LTexture::setBlending(SDL_BlendMode blendMode)
+{
+    SDL_SetTextureBlendMode( mTexture, blendMode );
+}
+
+void LTexture::render( float x, float y, SDL_FRect* clip, float width, float height, double degrees, SDL_FPoint* center, SDL_FlipMode flipMode )
 {
     //set texture position
     ///SDL_FRect defines where on the screen we are gonna draw it.
@@ -260,8 +372,25 @@ void LTexture::render( float x, float y )
     ///static_cast is just the best way to do that in modern c++
     SDL_FRect dstRect{ x, y, static_cast<float>( mWidth ), static_cast<float>( mHeight ) };
 
+    //Default to clip dimensions if clip is given
+    if ( clip != nullptr )
+    {
+        dstRect.w = clip->w;
+        dstRect.h = clip->h;
+    }
+
+    //Resize if new dimensions are given
+    if ( width > 0 )
+    {
+        dstRect.w = width;
+    }
+    if ( height > 0 )
+    {
+        dstRect.h = height;
+    }
+
     //render texture
-    SDL_RenderTexture( gRenderer, mTexture, nullptr, &dstRect);
+    SDL_RenderTextureRotated( gRenderer, mTexture, clip, &dstRect, degrees, center, flipMode);
 }
 
 ///simple variable accessors.
@@ -302,6 +431,15 @@ bool init()
             SDL_Log("Window could not be created! SDL_Error: %s\n", SDL_GetError() );
             success = false;
         }
+        else
+        {
+            //initialize font loading
+            if ( TTF_Init() == false )
+            {
+                SDL_Log( "SDL_ttf could not initialize! SDL_ttf error: %s\n", SDL_GetError() );
+                success = false;
+            }
+        }
     }
     return success;
 }
@@ -315,15 +453,36 @@ bool loadMedia()
     ///there are like a billion different ways to load images in SDL3, this is just one option.
     ///im pondering how this will work for ascii still.
     ///dwarf fortress actually uses an older version of SDL so its clearly possible.
-    if ( gPngTexture.loadFromFile( "../assets/eukariot.png" ) == false )
+    if ( gPngTexture.loadFromFile( "../assets/eukariot.png", 0xFF, 0xFF, 0xFF ) == false )
     {
         SDL_Log("SDL could not load image!\n");
         success = false;
     }
-    if ( gBmpTexture.loadFromFile( "../assets/SDL-logo.bmp" ) == false )
+    if ( gBmpTexture.loadFromFile( "../assets/sdllogo.png", 0x00, 0xFF, 0xFF ) == false )
     {
         SDL_Log("SDL could not load image!\n");
         success = false;
+    }
+    if ( gSpriteSheetTexture.loadFromFile( "../assets/dots.png", 0x00, 0xFF, 0xFF ) == false )
+    {
+        SDL_Log("SDL could not load image!\n");
+        success = false;
+    }
+    std::string fontPath{ "../assets/RobotoMono-VariableFont_wght.ttf" };
+    if ( gFont = TTF_OpenFont( fontPath.c_str(), 28 ); gFont == nullptr )
+    {
+        SDL_Log( "Could not load %s! SDL_ttf Error: %s\n", fontPath.c_str(), SDL_GetError() );
+        success = false;
+    }
+    else
+    {
+        //load text
+        SDL_Color textColor{ 0x00, 0x00, 0x00, 0xFF};
+        if ( gTextTexture.loadFromRenderedText( "Install your balls", textColor ) == false)
+        {
+            SDL_Log( "Could not load text texture %s! SDL_ttf Error: %s\n", fontPath.c_str(), SDL_GetError() );
+            success = false;
+        }
     }
 
     return success;
@@ -334,6 +493,10 @@ void close()
     //clean up surface
     gPngTexture.destroy();
 
+    //free font
+    TTF_CloseFont( gFont );
+    gFont = nullptr;
+
     //destroy window
     SDL_DestroyRenderer( gRenderer );
     gRenderer = nullptr;
@@ -341,5 +504,6 @@ void close()
     gWindow = nullptr;
 
     //quit sdl subsystems
+    TTF_Quit();
     SDL_Quit();
 }
