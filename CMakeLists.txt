@@ -3,9 +3,11 @@ project(Eukariot)
 
 set(CMAKE_CXX_STANDARD 26)
 
-add_subdirectory(vendor)
+add_subdirectory(vendor/SDL)
+add_subdirectory(vendor/SDL_image)
+
 add_executable(${PROJECT_NAME} main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE vendor)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3 SDL3_image::SDL3_image)
 
 
 
