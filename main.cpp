@@ -378,7 +378,7 @@ int main()
                     double framesPerSecond{ 1000000000.0 / static_cast<double>( renderingNS ) };
 
                     frameTimeText.str( "" );
-                    frameTimeText << "FPS: " << ( vsyncEnabled ? "(VSYNC )" : "" ) << ( fpsCapEnabled ? "(Cap) " : "" ) <<framesPerSecond;
+                    frameTimeText << "FPS: " << ( vsyncEnabled ? "(VSYNC) " : "" ) << ( fpsCapEnabled ? "(Cap) " : "" ) << framesPerSecond;
                     SDL_Color textColor{ 0x00, 0x00, 0x00, 0xFF };
                     gFpsTexture.loadFromRenderedText( frameTimeText.str(), textColor );
                 }
@@ -420,7 +420,7 @@ int main()
                 gTimeTextTexture.render( ( kScreenWidth - gTimeTextTexture.getWidth() ) / 2.f, ( kScreenHeight - gTimeTextTexture.getHeight() ) );
 
                 //draw fps
-                gFpsTexture.render( ( kScreenWidth - gFpsTexture.getWidth() ), ( 0 ) );
+                gFpsTexture.render( ( kScreenWidth - 400 ), ( 0 ) );
 
                 //render text
                 //gTextTexture.render( ( kScreenWidth - gTextTexture.getWidth() ) / 2.f, (kScreenHeight - gTextTexture.getHeight() ) );

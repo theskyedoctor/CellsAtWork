@@ -15,6 +15,9 @@ target_include_directories("ImGui" PUBLIC ${IMGUI_PATH})
 add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ImGui)
 
+target_include_directories(${PROJECT_NAME} PRIVATE
+        vendor/entt
+)
 
 
 
