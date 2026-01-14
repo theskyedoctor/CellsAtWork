@@ -23,5 +23,12 @@
     <mapping directory="$PROJECT_DIR$/vendor/SDL_image/external/libwebp" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/vendor/SDL_image/external/zlib" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf/external/freetype" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf/external/freetype/subprojects/dlg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf/external/harfbuzz" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf/external/plutosvg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf/external/plutosvg/plutovg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/SDL_ttf/external/plutovg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/imgui" vcs="Git" />
   </component>
 </project>

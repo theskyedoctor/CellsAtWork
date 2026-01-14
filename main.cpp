@@ -3,11 +3,14 @@
  * This will be fixed after I learn how to!
 */
 
+#include <ostream>
+
 #include "SDL3/SDL.h"
 #include "SDL3/SDL_main.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 #include <string>
+#include <sstream>
 
 /* Constants */
 //Screen Dimension Constants
@@ -18,6 +21,7 @@ but if we were making something huge like Helldivers it might be a bad idea.
 also I think some modern games detect the monitor's size once and set it that way. also an option.*/
 constexpr int kScreenWidth{ 1280 };
 constexpr int kScreenHeight{ 640 };
+constexpr int kScreenFps{ 60 };
 
 /* Class Prototypes */
 class LTexture
@@ -93,6 +97,70 @@ class GameObject
 
 };*/
 
+class LButton
+{
+public:
+    //Button dimensions
+    static constexpr int kButtonWidth = 300;
+    static constexpr int kButtonHeight = 200;
+
+    //initalizes internal variables
+    LButton();
+
+    //Sets top left potiion
+    void setPosition( float x, float y );
+
+    //handles mouse event
+    void handleEvent( SDL_Event* e );
+
+    //show button sprite
+    void render();
+
+private:
+    enum class eButtonSprite
+    {
+        MouseOut = 0,
+        MouseOverMotion = 1,
+        MouseDown = 2,
+        MouseUp = 3
+    };
+
+    //top left position
+    SDL_FPoint mPosition;
+
+    //currently used global sprite
+    eButtonSprite mCurrentSprite;
+};
+
+class LTimer
+{
+public:
+    //initialize variables
+    LTimer();
+
+    //The various clock actions
+    void start();
+    void stop();
+    void pause();
+    void unpause();
+
+    //get the times time
+    Uint64 getTicksNS();
+
+    bool isStarted();
+    bool isPaused();
+
+private:
+    //the clock time when the timer started
+    Uint64 mStartTicks;
+
+    //The ticks stored when the timer was paused
+    Uint64 mPausedTicks;
+
+    bool mPaused;
+    bool mStarted;
+};
+
 /* Function Prototypes */
 //Starts up SDL and creates window
 bool init();
@@ -118,7 +186,7 @@ TTF_Font* gFont{ nullptr };
 //the PNG image we will be rendering
 ///you could likely load as many textures as you wanted this way.
 ///seems inefficient and I bet that there is a way to load in lots of textures into an atlas of some kind.
-LTexture gPngTexture, gBmpTexture, gSpriteSheetTexture, gTextTexture;
+LTexture gPngTexture, gBmpTexture, gSpriteSheetTexture, gTextTexture, gButtonSpriteTexture, gTimeTextTexture, gFpsTexture;
 
 int main()
 {
@@ -153,20 +221,80 @@ int main()
             LTexture* currentTexture = &gPngTexture;
             SDL_Color bgColor{ 0xff, 0xff, 0xff, 0xff };
 
+            //set color constants
+            constexpr int kColorMagnitudeCount = 3;
+            constexpr Uint8 kColorMagnitudes[ kColorMagnitudeCount ] = { 0x00, 0x7F, 0xFF };
+            enum class eColorChannel
+            {
+                TextureRed = 0,
+                TextureGreen = 1,
+                TextureBlue = 2,
+                TextureAlpha = 3,
+
+                BackgroundRed = 4,
+                BackgroundGreen = 5,
+                BackgroundBlue = 6,
+
+                Total = 7,
+                Unknown = 8
+            };
+
+            //initialize colors
+            Uint8 colorChannelsIndices[ static_cast<Uint8>( eColorChannel::Total ) ];
+            colorChannelsIndices[ static_cast<int>( eColorChannel::TextureRed ) ] = 2;
+            colorChannelsIndices[ static_cast<int>( eColorChannel::TextureGreen ) ] = 2;
+            colorChannelsIndices[ static_cast<int>( eColorChannel::TextureBlue ) ] = 2;
+            colorChannelsIndices[ static_cast<int>( eColorChannel::TextureAlpha ) ] = 2;
+
+            colorChannelsIndices[ static_cast<int>( eColorChannel::BackgroundRed ) ] = 2;
+            colorChannelsIndices[ static_cast<int>( eColorChannel::BackgroundGreen ) ] = 2;
+            colorChannelsIndices[ static_cast<int>( eColorChannel::BackgroundBlue ) ] = 2;
+
+            //Initialize blending
+            gPngTexture.setBlending( SDL_BLENDMODE_BLEND );
+            gBmpTexture.setBlending( SDL_BLENDMODE_BLEND );
+
+            constexpr int kButtonCount = 1;
+            LButton buttons[ kButtonCount ];
+            buttons[0].setPosition(0, 0);
+
+            //application timer
+            LTimer timer;
+
+            //in memory text stream
+            std::stringstream timeText;
+
+            bool vsyncEnabled{ true };
+
+            //FPS cap toggle
+            bool fpsCapEnabled{ false };
+
+            //timer to cap frame rate
+            LTimer capTimer;
+
+            //Time spent rendering
+            Uint64 renderingNS{ 0 };
+
+            std::stringstream frameTimeText;
+
             //The main loop
             while ( quit == false)
             {
+                //start frame time
+                capTimer.start();
+
                 //Get event data
                 ///this event checks if the user closes the window, and then ends the loop allowing the program to end.
                 while ( SDL_PollEvent( &e ) == true )
                 {
+
                     //If event is quit type
                     if ( e.type == SDL_EVENT_QUIT )
                     {
                         quit = true;
                     }
                     //on keyboard key press
-                    else if ( e.type == SDL_EVENT_KEY_UP )
+                    /*else if ( e.type == SDL_EVENT_KEY_UP )
                     {
                         if ( e.key.key == SDLK_SPACE)
                         {
@@ -179,29 +307,90 @@ int main()
                                 currentTexture = &gPngTexture;
                             }
                         }
+                    }*/
+                    //Reset start time on return keypress
+                    else if( e.type == SDL_EVENT_KEY_DOWN )
+                    {
+                        //Start/stop
+                        if( e.key.key == SDLK_RETURN )
+                        {
+                            if( timer.isStarted() )
+                            {
+                                timer.stop();
+                            }
+                            else
+                            {
+                                timer.start();
+                            }
+                        }
+                        //Pause/unpause
+                        else if( e.key.key == SDLK_SPACE )
+                        {
+                            if( timer.isPaused() )
+                            {
+                                timer.unpause();
+                            }
+                            else
+                            {
+                                timer.pause();
+                            }
+                        }
+                    }
+                    //Handle button events
+                    for( int i = 0; i < kButtonCount; ++i )
+                    {
+                        buttons[ i ].handleEvent( &e );
                     }
                 }
-                //reset background color to white
-                bgColor.r = 0xFF;
-                bgColor.g = 0xFF;
-                bgColor.b = 0xFF;
+
 
                 //set background color based on key state
                 /// there are more traditional ways to get keycodes, but keyboard state is the best for movement
                 /// otherwise you could use the code above
+                eColorChannel channelToUpdate = eColorChannel::Unknown;
                 const bool* keyStates = SDL_GetKeyboardState( nullptr );
                 if ( keyStates[ SDL_SCANCODE_SPACE ] )
                 {
-                    bgColor.r = 0xFF;
-                    bgColor.g = 0xB7;
-                    bgColor.b = 0xCE;
-
-
+                    channelToUpdate = eColorChannel::TextureAlpha;
                 }
+
+                if ( channelToUpdate != eColorChannel::Unknown )
+                {
+                    //Cycle through channel values
+                    colorChannelsIndices[ static_cast<int>( channelToUpdate ) ]++;
+                    if ( colorChannelsIndices[ static_cast<int>( channelToUpdate ) ] >= kColorMagnitudeCount )
+                    {
+                        colorChannelsIndices[ static_cast<int>( channelToUpdate ) ] = 0;
+                    }
+                }
+                //update timer text
+                if ( timer.isStarted() == true )
+                {
+                    timeText.str( "" );
+                    timeText << "milliseconds since start time " << ( timer.getTicksNS() / 1000000 );
+                    SDL_Color textColor{ 0x00, 0x00, 0x00, 0xFF};
+                    gTimeTextTexture.loadFromRenderedText( timeText.str(), textColor );
+                }
+
+                //update framerate timer text
+                if ( renderingNS != 0 )
+                {
+                    double framesPerSecond{ 1000000000.0 / static_cast<double>( renderingNS ) };
+
+                    frameTimeText.str( "" );
+                    frameTimeText << "FPS: " << ( vsyncEnabled ? "(VSYNC )" : "" ) << ( fpsCapEnabled ? "(Cap) " : "" ) <<framesPerSecond;
+                    SDL_Color textColor{ 0x00, 0x00, 0x00, 0xFF };
+                    gFpsTexture.loadFromRenderedText( frameTimeText.str(), textColor );
+                }
+
 
                 //Fill the background
                 ///could maybe input opengl shaders that you make in shader toy here? might be worth trying
-                SDL_SetRenderDrawColor( gRenderer, bgColor.r, bgColor.g, bgColor.b, 0xFF );
+                SDL_SetRenderDrawColor( gRenderer,
+                    kColorMagnitudes[ colorChannelsIndices[ static_cast<int>( eColorChannel::BackgroundRed ) ] ],
+                    kColorMagnitudes[ colorChannelsIndices[ static_cast<int>( eColorChannel::BackgroundGreen ) ] ],
+                    kColorMagnitudes[ colorChannelsIndices[ static_cast<int>( eColorChannel::BackgroundBlue ) ] ],
+                    0xFF );
                 SDL_RenderClear( gRenderer );
 
                 //initialize sprite clip
@@ -219,11 +408,22 @@ int main()
                 spriteSize.w = kSpriteSize;
                 spriteSize.h = kSpriteSize;
 
+                for( int i = 0; i < kButtonCount; i++ )
+                {
+                    buttons[ i ].render();
+                }
+
                 //draw original sized sprite
                 //gSpriteSheetTexture.render( 0.f, 0.f, &spriteClip, spriteSize.w, spriteSize.h, 45 );
 
+                //draw text
+                gTimeTextTexture.render( ( kScreenWidth - gTimeTextTexture.getWidth() ) / 2.f, ( kScreenHeight - gTimeTextTexture.getHeight() ) );
+
+                //draw fps
+                gFpsTexture.render( ( kScreenWidth - gFpsTexture.getWidth() ), ( 0 ) );
+
                 //render text
-                gTextTexture.render( ( kScreenWidth - gTextTexture.getWidth() ) / 2.f, (kScreenHeight - gTextTexture.getHeight() ) );
+                //gTextTexture.render( ( kScreenWidth - gTextTexture.getWidth() ) / 2.f, (kScreenHeight - gTextTexture.getHeight() ) );
 
                 //render image on screen
                 /// we write it as 0.f instead of 0.0 because the graphics card uses a weird notation.
@@ -232,6 +432,20 @@ int main()
 
                 //update screen
                 SDL_RenderPresent( gRenderer );
+
+                //get time to render frame
+                renderingNS = capTimer.getTicksNS();
+
+                constexpr Uint64 nsPerFrame = 1000000000 / kScreenFps;
+                if ( fpsCapEnabled && renderingNS < nsPerFrame )
+                {
+                    //sleep remaining frame time
+                    Uint64 sleepTime = nsPerFrame - renderingNS;
+                    SDL_DelayNS( sleepTime );
+
+                    //get frame time including sleep time
+                    renderingNS = capTimer.getTicksNS();
+                }
             }
         }
     }
@@ -410,6 +624,190 @@ bool LTexture::isLoaded()
     return mTexture != nullptr;
 }
 
+//LButton Implementation
+LButton::LButton():
+    mPosition{ 0.f, 0.f },
+    mCurrentSprite{ eButtonSprite::MouseOut }
+{
+
+}
+
+void LButton::setPosition( float x, float y )
+{
+    mPosition.x = x;
+    mPosition.y = y;
+}
+
+void LButton::handleEvent( SDL_Event* e )
+{
+    //If mouse event happened
+    if ( e->type == SDL_EVENT_MOUSE_MOTION || e->type == SDL_EVENT_MOUSE_BUTTON_DOWN || e->type == SDL_EVENT_MOUSE_BUTTON_UP )
+    {
+        //Get mouse position
+        float x = -1.f, y = -1.f;;
+        SDL_GetMouseState( &x, &y );
+
+        //check if mouse is in button
+        bool inside = true;
+
+        //mouse is left of the button
+        if ( x < mPosition.x )
+        {
+            inside = false;
+        }
+        else if ( x > mPosition.x + kButtonWidth )
+        {
+            inside = false;
+        }
+        else if ( y < mPosition.y )
+        {
+            inside = false;
+        }
+        else if ( y > mPosition.y + kButtonHeight )
+        {
+            inside = false;
+        }
+
+        //Mouse is outside button
+        if ( !inside )
+        {
+            mCurrentSprite = eButtonSprite::MouseOut;
+        }
+        //mouse is inside button
+        else
+        {
+            switch ( e->type )
+            {
+                case SDL_EVENT_MOUSE_MOTION:
+                mCurrentSprite = eButtonSprite::MouseOverMotion;
+                break;
+
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                mCurrentSprite = eButtonSprite::MouseDown;
+                break;
+
+                case SDL_EVENT_MOUSE_BUTTON_UP:
+                mCurrentSprite = eButtonSprite::MouseUp;
+                break;
+            }
+        }
+    }
+}
+
+void LButton::render()
+{
+    //Define sprites
+    SDL_FRect spriteClips[] = {
+        { 0.f, 0*kButtonHeight, kButtonWidth, kButtonHeight},
+        { 0.f, 1*kButtonHeight, kButtonWidth, kButtonHeight},
+        { 0.f, 2*kButtonHeight, kButtonWidth, kButtonHeight},
+        { 0.f, 3*kButtonHeight, kButtonWidth, kButtonHeight}
+    };
+
+    //show current button sprite
+    gButtonSpriteTexture.render( mPosition.x, mPosition.y, &spriteClips[ static_cast<int>( mCurrentSprite ) ] );
+}
+
+//LTimer Implementation
+LTimer::LTimer():
+    mStartTicks{ 0 },
+    mPausedTicks{ 0 },
+
+    mPaused{ false },
+    mStarted{ false }
+{
+
+}
+
+void LTimer::start()
+{
+    //start the timer
+    mStarted = true;
+
+    //unpause the timer
+    mPaused = false;
+
+    //get the current clock time
+    mStartTicks = SDL_GetTicksNS();
+    mPausedTicks = 0;
+}
+
+void LTimer::stop()
+{
+    //Stop the timer
+    mStarted = false;
+
+    //unpause the timer
+    mPaused = false;
+
+    //clear tick variables
+    mStartTicks = 0;
+    mPausedTicks = 0;
+}
+
+void LTimer::pause()
+{
+    //if the timer is running and isnt already pasued
+    if ( mStarted && !mPaused )
+    {
+        //pause the timer
+        mPaused = true;
+
+        //calculate the pauses ticks
+        mPausedTicks = SDL_GetTicksNS() - mStartTicks;
+        mStartTicks = 0;
+    }
+}
+
+void LTimer::unpause()
+{
+    //if the timer is running and paused
+    if ( mStarted && mPaused )
+    {
+        //unpause the timer
+        mPaused = false;
+
+        //reset the starting ticks
+        mStartTicks = SDL_GetTicksNS() - mPausedTicks;
+
+        //reset the paused ticks
+        mPausedTicks = 0;
+    }
+}
+
+Uint64 LTimer::getTicksNS()
+{
+    //the actual timer time
+    Uint64 time{ 0 };
+
+    if ( mStarted )
+    {
+        //if the timer is paused
+        if ( mPaused )
+        {
+            //Return the number of ticks when the timer was paused
+            time = mPausedTicks;
+        }
+        else
+        {
+            //Return the current time minus the start time
+            time = SDL_GetTicksNS() - mStartTicks;
+        }
+    }
+
+    return time;
+}
+
+bool LTimer::isPaused()
+{
+    return mPaused && mStarted;
+}
+
+bool LTimer::isStarted()
+{
+    return mStarted;
+}
+
 /* Function Implementations*/
 
 bool init()
@@ -426,13 +824,19 @@ bool init()
     else
     {
         //create window with renderer
-        if ( SDL_CreateWindowAndRenderer( "SDL3 example: Eukariot", kScreenWidth, kScreenHeight, 0, &gWindow, &gRenderer ) == false )
+        if ( SDL_CreateWindowAndRenderer( "Eukariot", kScreenWidth, kScreenHeight, 0, &gWindow, &gRenderer ) == false )
         {
             SDL_Log("Window could not be created! SDL_Error: %s\n", SDL_GetError() );
             success = false;
         }
         else
         {
+            //enable VSync
+            if ( SDL_SetRenderVSync( gRenderer, 1 )  == false)
+            {
+                SDL_Log("Unable to set VSync! SDL Error: %s\n", SDL_GetError() );
+                success = false;
+            }
             //initialize font loading
             if ( TTF_Init() == false )
             {
@@ -468,6 +872,11 @@ bool loadMedia()
         SDL_Log("SDL could not load image!\n");
         success = false;
     }
+    if (gButtonSpriteTexture.loadFromFile(  "../assets/buttonmap.png", 0x00, 0xFF, 0xFF ) == false )
+    {
+        SDL_Log("SDL could not load image!\n");
+        success = false;
+    }
     std::string fontPath{ "../assets/RobotoMono-VariableFont_wght.ttf" };
     if ( gFont = TTF_OpenFont( fontPath.c_str(), 28 ); gFont == nullptr )
     {
@@ -478,7 +887,7 @@ bool loadMedia()
     {
         //load text
         SDL_Color textColor{ 0x00, 0x00, 0x00, 0xFF};
-        if ( gTextTexture.loadFromRenderedText( "Install your balls", textColor ) == false)
+        if ( gTimeTextTexture.loadFromRenderedText( "Press enter to start/stop or space to pause/unpase", textColor ) == false)
         {
             SDL_Log( "Could not load text texture %s! SDL_ttf Error: %s\n", fontPath.c_str(), SDL_GetError() );
             success = false;

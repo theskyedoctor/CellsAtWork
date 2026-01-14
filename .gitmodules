@@ -7,3 +7,9 @@
 [submodule "vendor/SDL_ttf"]
 	path = vendor/SDL_ttf
 	url = https://github.com/libsdl-org/SDL_ttf.git
+[submodule "vender/imgui"]
+	path = vender/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "vendor/imgui"]
+	path = vendor/imgui
+	url = https://github.com/ocornut/imgui.git

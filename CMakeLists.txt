@@ -6,9 +6,14 @@ set(CMAKE_CXX_STANDARD 26)
 add_subdirectory(vendor/SDL)
 add_subdirectory(vendor/SDL_image)
 add_subdirectory(vendor/SDL_ttf)
+set(IMGUI_PATH "vendor/imgui")
+
+file(GLOB IMGUI_SOURCES ${IMGUI_PATH}/*.cpp)
+add_library("ImGui" STATIC ${IMGUI_SOURCES})
+target_include_directories("ImGui" PUBLIC ${IMGUI_PATH})
 
 add_executable(${PROJECT_NAME} main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf ImGui)
 
 
 
